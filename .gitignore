@@ -209,3 +209,6 @@ __marimo__/
 
 # Local Nsight Systems/Compute profiling reports
 tests/profiles/
+
+# Internal tooling (not for public repo)
+.agents/
