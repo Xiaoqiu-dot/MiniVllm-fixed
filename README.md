@@ -125,4 +125,4 @@ myvllm/
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Xiaoqiu-dot/MinivLLM&type=date&legend=top-left)](https://www.star-history.com/?utm_source=chatgpt.com#Xiaoqiu-dot/MinivLLM&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=Xiaoqiu-dot/MinivLLM-Fixed&type=date&legend=top-left)](https://www.star-history.com/?utm_source=chatgpt.com#Xiaoqiu-dot/MinivLLM-Fixed&type=date&legend=top-left)
