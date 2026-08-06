@@ -7,7 +7,9 @@
 | <a href="./README_zh.md"><b>简体中文</b></a> |
 </p>
 
-# miniVLLM
+# MinivLLM-Fixed
+
+> 一个可完整运行的最小化 vLLM 推理引擎，用于深入学习 LLM 推理原理 —— 自实现 PagedAttention/FlashAttention、张量并行 Qwen3/Llama 支持、KV Cache 管理与自定义 CUDA Decode Kernel。
 
 首先，感谢原作者提供了一个最小版本的 vLLM 实现，让学习 vLLM 变得更加容易。不过，原 MiniVLLM 项目并不完善，其中存在不少 Bug，无法可靠地跑通端到端的张量并行（TP）推理流程，推理调度和 KV Cache 管理也有许多逻辑漏洞。
 

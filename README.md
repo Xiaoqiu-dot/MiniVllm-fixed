@@ -9,6 +9,8 @@
 
 # MinivLLM-Fixed
 
+> A fully runnable minimal vLLM inference engine for learning LLM inference internals — self-contained paged & flash attention, tensor-parallel Qwen3/Llama support, KV cache management, and custom CUDA decode kernels.
+
 First, many thanks to the original author for providing a minimal vLLM implementation that makes vLLM much easier to learn. However, the original MiniVLLM project is not yet complete: it contains a number of bugs and cannot reliably run an end-to-end tensor-parallel (TP) inference pipeline with correct scheduling and KV cache management.
 
 This repository provides a fully runnable MiniVLLM inference framework. It fixes the bugs in the original project and adds new features on top of it. Bug fixes and new features are published as releases, each with a corresponding commit ID range, so learners can follow the releases step by step to fix the bugs, understand each new feature, or build their own features.
