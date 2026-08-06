@@ -1,6 +1,6 @@
-# Summary — Commit ID Range: [`dcff99f`](https://github.com/YOUR_USERNAME/MinivLLM/commit/dcff99f3b791a230eddc447b0519583bf6c209e5) → [`f71bd44`](https://github.com/YOUR_USERNAME/MinivLLM/commit/f71bd443275e6f0b1ddfa3e482fa34e160ef92a9)
+# Summary — Commit ID Range: `dcff99f` → `f71bd44`
 
-**Tag:** [`release-6`](https://github.com/YOUR_USERNAME/MinivLLM/tree/release-6)
+**Tag:** `release-6`
 
 This release prepares the decode-attention foundation for the next release. The next release will add single-node, multi-GPU deployment for Qwen3-32B and use it to validate Tensor Parallelism (TP) together with the complete inference framework's Prefill/Decode scheduling, KV Cache, CUDA Graph, and multi-rank execution paths. Release 6 first removes the large-model Decode Kernel bottleneck: in the isolated Qwen3-32B decode-attention benchmark, the new kernel delivers approximately **75× kernel-level speedup** over the original implementation.
 
@@ -17,9 +17,9 @@ The optimized implementation is intentionally introduced as `attention_large_sca
 
 **Bugs**
 
-* The original launch grid was `(batch_size, num_heads)`. With Qwen3-32B at Batch 1, it launched only 64 Triton programs, and every program serially traversed the complete KV context. Long-context Decode therefore exposed too little independent work to occupy the GPU. ([Original code](https://github.com/YOUR_USERNAME/MinivLLM/blob/25ce870d2319b387133fd5680fa0fc95cd10b2a8/src/myvllm/layers/attention.py#L475-L528))
-* Although Qwen3-32B uses GQA and eight Query Heads share one KV Head, the old program was assigned to one Query Head. The same K/V data was consequently loaded and processed again by eight separate programs instead of being shared by the Query group. ([Original code](https://github.com/YOUR_USERNAME/MinivLLM/blob/25ce870d2319b387133fd5680fa0fc95cd10b2a8/src/myvllm/layers/attention.py#L363-L424))
-* QK and PV were expressed as scalar loops over `BLOCK_N`: the kernel loaded one K vector, reduced `q * k`, inserted one score into `qk`, and then repeated a second scalar loop to extract each probability and accumulate one V vector. This prevented the two dominant matrix products from using tiled `tl.dot` operations and Tensor Core-friendly MMA shapes. ([Original code](https://github.com/YOUR_USERNAME/MinivLLM/blob/25ce870d2319b387133fd5680fa0fc95cd10b2a8/src/myvllm/layers/attention.py#L397-L465))
+* The original launch grid was `(batch_size, num_heads)`. With Qwen3-32B at Batch 1, it launched only 64 Triton programs, and every program serially traversed the complete KV context. Long-context Decode therefore exposed too little independent work to occupy the GPU. (Original code)
+* Although Qwen3-32B uses GQA and eight Query Heads share one KV Head, the old program was assigned to one Query Head. The same K/V data was consequently loaded and processed again by eight separate programs instead of being shared by the Query group. (Original code)
+* QK and PV were expressed as scalar loops over `BLOCK_N`: the kernel loaded one K vector, reduced `q * k`, inserted one score into `qk`, and then repeated a second scalar loop to extract each probability and accumulate one V vector. This prevented the two dominant matrix products from using tiled `tl.dot` operations and Tensor Core-friendly MMA shapes. (Original code)
 
 **Example**
 
@@ -27,9 +27,9 @@ The benchmark models Qwen3-32B Decode with `batch_size = 1`, `context_len = 4096
 
 **Fixes**
 
-* The stage-1 grid is changed to `(batch_size, num_kv_heads, num_splits)`. Each program now owns one `(batch, KV Head, context split)` tuple, so long contexts expose N-direction parallelism instead of remaining serial inside one program. ([Fix](https://github.com/YOUR_USERNAME/MinivLLM/blob/dcff99f3b791a230eddc447b0519583bf6c209e5/src/myvllm/layers/attention_large_scale.py#L344-L387))
-* All Query Heads sharing a KV Head are loaded as one Q group. For Qwen3-32B the logical group is `[8, 128]`; it is padded to an MMA-compatible `[16, 128]` tile, with padded rows masked from loads and stores. One K tile is then reused by all eight real Query Heads. ([Fix](https://github.com/YOUR_USERNAME/MinivLLM/blob/dcff99f3b791a230eddc447b0519583bf6c209e5/src/myvllm/layers/attention_large_scale.py#L388-L408))
-* Paged K/V addresses for all 32 Tokens in an N tile are translated together. QK becomes `tl.dot(q, k)` over `[16, 128] @ [128, 32]`, and PV becomes `tl.dot(p, v)` over `[16, 32] @ [32, 128]`. The existing online-softmax state `m_i`, `l_i`, and `acc` is preserved across tiles. ([Fix](https://github.com/YOUR_USERNAME/MinivLLM/blob/dcff99f3b791a230eddc447b0519583bf6c209e5/src/myvllm/layers/attention_large_scale.py#L410-L455))
+* The stage-1 grid is changed to `(batch_size, num_kv_heads, num_splits)`. Each program now owns one `(batch, KV Head, context split)` tuple, so long contexts expose N-direction parallelism instead of remaining serial inside one program. (Fix)
+* All Query Heads sharing a KV Head are loaded as one Q group. For Qwen3-32B the logical group is `[8, 128]`; it is padded to an MMA-compatible `[16, 128]` tile, with padded rows masked from loads and stores. One K tile is then reused by all eight real Query Heads. (Fix)
+* Paged K/V addresses for all 32 Tokens in an N tile are translated together. QK becomes `tl.dot(q, k)` over `[16, 128] @ [128, 32]`, and PV becomes `tl.dot(p, v)` over `[16, 32] @ [32, 128]`. The existing online-softmax state `m_i`, `l_i`, and `acc` is preserved across tiles. (Fix)
 
 ### 2. Split-KV Parallelism and Numerically Stable Reduction
 
@@ -39,8 +39,8 @@ The benchmark models Qwen3-32B Decode with `batch_size = 1`, `context_len = 4096
 
 **Bugs**
 
-* The original kernel had no context-split dimension, so increasing `context_len` increased the serial work inside each Query-Head program without increasing the launch grid. This is particularly inefficient for Batch-1 autoregressive Decode, where Batch parallelism is unavailable. ([Original code](https://github.com/YOUR_USERNAME/MinivLLM/blob/25ce870d2319b387133fd5680fa0fc95cd10b2a8/src/myvllm/layers/attention.py#L382-L465))
-* A split context cannot be combined by averaging independently normalized Attention outputs. Each split has a different maximum logit and exponential denominator; discarding these statistics would change the global Softmax result. The original single-program implementation had no partial-state representation or reduction path. ([Original code](https://github.com/YOUR_USERNAME/MinivLLM/blob/25ce870d2319b387133fd5680fa0fc95cd10b2a8/src/myvllm/layers/attention.py#L429-L472))
+* The original kernel had no context-split dimension, so increasing `context_len` increased the serial work inside each Query-Head program without increasing the launch grid. This is particularly inefficient for Batch-1 autoregressive Decode, where Batch parallelism is unavailable. (Original code)
+* A split context cannot be combined by averaging independently normalized Attention outputs. Each split has a different maximum logit and exponential denominator; discarding these statistics would change the global Softmax result. The original single-program implementation had no partial-state representation or reduction path. (Original code)
 
 **Example**
 
@@ -48,10 +48,10 @@ For the Qwen3-32B benchmark shape, `4096 / BLOCK_N = 128` N tiles and `_choose_d
 
 **Fixes**
 
-* The context is divided by N tiles rather than arbitrary Token boundaries. `num_n_tiles`, `tiles_per_split`, `split_tile_start`, and `split_tile_end` assign every complete `BLOCK_N = 32` tile to exactly one split while the final tile masks Tokens beyond `context_len`. ([Fix](https://github.com/YOUR_USERNAME/MinivLLM/blob/dcff99f3b791a230eddc447b0519583bf6c209e5/src/myvllm/layers/attention_large_scale.py#L381-L425))
-* Stage 1 stores unnormalized online-softmax states in workspaces shaped `[batch, query_head, split]` for `m_i/l_i` and `[batch, query_head, split, head_dim]` for `acc`. Keeping split adjacent allows each reduction program to read all states for one Query Head. ([Fix](https://github.com/YOUR_USERNAME/MinivLLM/blob/dcff99f3b791a230eddc447b0519583bf6c209e5/src/myvllm/layers/attention_large_scale.py#L457-L473))
-* The reduction reconstructs the exact global online Softmax. It computes `m = max_s(m_s)`, rescales every split by `exp(m_s - m)`, obtains `l = Σ_s exp(m_s - m) l_s` and `acc = Σ_s exp(m_s - m) acc_s`, then writes `acc / l`. Empty splits have `l_s = 0` and contribute nothing. ([Fix](https://github.com/YOUR_USERNAME/MinivLLM/blob/dcff99f3b791a230eddc447b0519583bf6c209e5/src/myvllm/layers/attention_large_scale.py#L490-L552))
-* `_choose_decode_num_splits()` caps N parallelism by the available tile count, 32 splits, and a target of 128 stage-1 programs. The decision uses launch-time Shapes rather than runtime `context_lens`, keeping the kernel grid stable for CUDA Graph capture. When `num_splits == 1`, stage 1 normalizes directly into `output`, avoiding partial workspaces and the reduction launch. ([Fix](https://github.com/YOUR_USERNAME/MinivLLM/blob/dcff99f3b791a230eddc447b0519583bf6c209e5/src/myvllm/layers/attention_large_scale.py#L555-L695))
+* The context is divided by N tiles rather than arbitrary Token boundaries. `num_n_tiles`, `tiles_per_split`, `split_tile_start`, and `split_tile_end` assign every complete `BLOCK_N = 32` tile to exactly one split while the final tile masks Tokens beyond `context_len`. (Fix)
+* Stage 1 stores unnormalized online-softmax states in workspaces shaped `[batch, query_head, split]` for `m_i/l_i` and `[batch, query_head, split, head_dim]` for `acc`. Keeping split adjacent allows each reduction program to read all states for one Query Head. (Fix)
+* The reduction reconstructs the exact global online Softmax. It computes `m = max_s(m_s)`, rescales every split by `exp(m_s - m)`, obtains `l = Σ_s exp(m_s - m) l_s` and `acc = Σ_s exp(m_s - m) acc_s`, then writes `acc / l`. Empty splits have `l_s = 0` and contribute nothing. (Fix)
+* `_choose_decode_num_splits()` caps N parallelism by the available tile count, 32 splits, and a target of 128 stage-1 programs. The decision uses launch-time Shapes rather than runtime `context_lens`, keeping the kernel grid stable for CUDA Graph capture. When `num_splits == 1`, stage 1 normalizes directly into `output`, avoiding partial workspaces and the reduction launch. (Fix)
 
 ### 3. New Decode Kernel Execution Flow
 
@@ -98,7 +98,7 @@ When `S = 1`, the reduction stage is skipped and stage 1 writes the normalized o
 
 **Fixes**
 
-* A deterministic CUDA driver now creates non-contiguous physical Block Tables and compares the optimized kernel with a PyTorch reference for short and long contexts. It separately compares old and new kernels for the Qwen3-32B benchmark shape, performs CUDA Event timing after warmup, and provides NVTX ranges plus CUDA profiler control for NCU/NSYS capture. ([Fix](https://github.com/YOUR_USERNAME/MinivLLM/blob/f71bd443275e6f0b1ddfa3e482fa34e160ef92a9/tests/test_attention_large_scale_decode.py#L1-L221))
+* A deterministic CUDA driver now creates non-contiguous physical Block Tables and compares the optimized kernel with a PyTorch reference for short and long contexts. It separately compares old and new kernels for the Qwen3-32B benchmark shape, performs CUDA Event timing after warmup, and provides NVTX ranges plus CUDA profiler control for NCU/NSYS capture. (Fix)
 
 Run the committed driver with:
 

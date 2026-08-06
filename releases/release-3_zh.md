@@ -1,6 +1,6 @@
-# 摘要 — Commit ID 区间：[`686b547`](https://github.com/YOUR_USERNAME/MinivLLM/commit/686b547b798518fcbd558e51e3d0a387c1bdbe07)
+# 摘要 — Commit ID 区间：`686b547`
 
-**Tag：** [`release-3`](https://github.com/YOUR_USERNAME/MinivLLM/tree/release-3)
+**Tag：** `release-3`
 
 此 Release 修复 Prefix Cache 命中后的 Prefill Attention，使其读取缓存前缀与新 Token 组成的完整 KV Context，而不是只关注未缓存的后缀。
 
@@ -14,7 +14,7 @@
 
 **问题**
 
-Prefix Cache 命中后，ModelRunner 只为未缓存 Token 计算 Q/K/V。旧 Flash Attention Kernel 将缩短后的 Query 长度同时用作 Q 和 K/V 长度，导致新 Token 无法关注缓存前缀。([原始 Kernel](https://github.com/YOUR_USERNAME/MinivLLM/blob/798b4552a1401f1eebbfff865816a95169aada5f/src/myvllm/layers/attention.py#L112-L211))
+Prefix Cache 命中后，ModelRunner 只为未缓存 Token 计算 Q/K/V。旧 Flash Attention Kernel 将缩短后的 Query 长度同时用作 Q 和 K/V 长度，导致新 Token 无法关注缓存前缀。(原始 Kernel)
 
 **示例**
 
@@ -22,15 +22,15 @@ Prefix Cache 命中后，ModelRunner 只为未缓存 Token 计算 Q/K/V。旧 Fl
 
 **修复**
 
-* 增加独立的 `cu_seqlens_q` 和 `cu_seqlens_k`：Q 表示本次新计算的 Token，K 表示包含缓存 Token 在内的完整 Context。([Kernel 输入](https://github.com/YOUR_USERNAME/MinivLLM/blob/686b547b798518fcbd558e51e3d0a387c1bdbe07/src/myvllm/layers/attention.py#L112-L151))
-* 对变长 Batch 中的每个请求计算 `num_cached_tokens = seq_len_k - seq_len_q`。([长度计算](https://github.com/YOUR_USERNAME/MinivLLM/blob/686b547b798518fcbd558e51e3d0a387c1bdbe07/src/myvllm/layers/attention.py#L139-L151))
-* 根据未缓存 Q 长度设置 Query Grid，同时遍历完整 Context 长度的 K/V。([Kernel 边界](https://github.com/YOUR_USERNAME/MinivLLM/blob/686b547b798518fcbd558e51e3d0a387c1bdbe07/src/myvllm/layers/attention.py#L153-L180)，[Launch Grid](https://github.com/YOUR_USERNAME/MinivLLM/blob/686b547b798518fcbd558e51e3d0a387c1bdbe07/src/myvllm/layers/attention.py#L300-L321))
+* 增加独立的 `cu_seqlens_q` 和 `cu_seqlens_k`：Q 表示本次新计算的 Token，K 表示包含缓存 Token 在内的完整 Context。(Kernel 输入)
+* 对变长 Batch 中的每个请求计算 `num_cached_tokens = seq_len_k - seq_len_q`。(长度计算)
+* 根据未缓存 Q 长度设置 Query Grid，同时遍历完整 Context 长度的 K/V。(Kernel 边界，Launch Grid)
 
 ### 2. 从 Paged Cache 读取 Prefix K/V
 
 **问题**
 
-连续 K/V Tensor 只包含本次 Prefill 调用中新计算的 Token。缓存 Prefix K/V 位于分页 KV Cache Block 中，无法通过旧的连续 Tensor 布局访问。([原始连续 K/V 寻址](https://github.com/YOUR_USERNAME/MinivLLM/blob/798b4552a1401f1eebbfff865816a95169aada5f/src/myvllm/layers/attention.py#L159-L195))
+连续 K/V Tensor 只包含本次 Prefill 调用中新计算的 Token。缓存 Prefix K/V 位于分页 KV Cache Block 中，无法通过旧的连续 Tensor 布局访问。(原始连续 K/V 寻址)
 
 **示例**
 
@@ -38,15 +38,15 @@ Prefix Cache 命中后，ModelRunner 只为未缓存 Token 计算 Q/K/V。旧 Fl
 
 **修复**
 
-* 将 K/V Cache Tensor、请求 Block Table、Block Size 和最大逻辑 Block 数传入 Triton Kernel。([Prefill 接口](https://github.com/YOUR_USERNAME/MinivLLM/blob/686b547b798518fcbd558e51e3d0a387c1bdbe07/src/myvllm/layers/attention.py#L251-L281))
-* 对每个逻辑 K/V Offset，计算 `logical_block = offset // block_size` 和 `block_offset = offset % block_size`，从请求 Block Table 读取物理 Block ID，再结合 KV Head 和 Head Dimension Stride 得到缓存地址。([Paged K 寻址](https://github.com/YOUR_USERNAME/MinivLLM/blob/686b547b798518fcbd558e51e3d0a387c1bdbe07/src/myvllm/layers/attention.py#L182-L207)，[Paged V 寻址](https://github.com/YOUR_USERNAME/MinivLLM/blob/686b547b798518fcbd558e51e3d0a387c1bdbe07/src/myvllm/layers/attention.py#L228-L233))
-* Attention 前先将当前后缀 K/V 写入 Paged Cache，使 Paged 路径能通过统一地址空间读取旧 Prefix 和新后缀。对于没有 Prefix Cache Hit 的请求，编译 `USE_PAGED_KV` 特化以保留连续内存快速路径；禁用分支接收的占位指针不会被解引用。([分派逻辑](https://github.com/YOUR_USERNAME/MinivLLM/blob/686b547b798518fcbd558e51e3d0a387c1bdbe07/src/myvllm/layers/attention.py#L306-L340))
+* 将 K/V Cache Tensor、请求 Block Table、Block Size 和最大逻辑 Block 数传入 Triton Kernel。(Prefill 接口)
+* 对每个逻辑 K/V Offset，计算 `logical_block = offset // block_size` 和 `block_offset = offset % block_size`，从请求 Block Table 读取物理 Block ID，再结合 KV Head 和 Head Dimension Stride 得到缓存地址。(Paged K 寻址，Paged V 寻址)
+* Attention 前先将当前后缀 K/V 写入 Paged Cache，使 Paged 路径能通过统一地址空间读取旧 Prefix 和新后缀。对于没有 Prefix Cache Hit 的请求，编译 `USE_PAGED_KV` 特化以保留连续内存快速路径；禁用分支接收的占位指针不会被解引用。(分派逻辑)
 
 ### 3. 修正 Causal Mask 坐标
 
 **问题**
 
-Q Offset 相对于未缓存后缀，而 K/V Offset 相对于完整请求。直接比较会错误地屏蔽有效的 Prefix Cache Token，并产生不正确的位置关系。([原始 Causal Mask](https://github.com/YOUR_USERNAME/MinivLLM/blob/798b4552a1401f1eebbfff865816a95169aada5f/src/myvllm/layers/attention.py#L176-L182))
+Q Offset 相对于未缓存后缀，而 K/V Offset 相对于完整请求。直接比较会错误地屏蔽有效的 Prefix Cache Token，并产生不正确的位置关系。(原始 Causal Mask)
 
 **示例**
 
@@ -54,7 +54,7 @@ Q Offset 相对于未缓存后缀，而 K/V Offset 相对于完整请求。直�
 
 **修复**
 
-应用 Causal Mask 前，将 Q 坐标加上 `num_cached_tokens`，使 Q 与 K/V 都相对于完整 Context。([Causal Mask](https://github.com/YOUR_USERNAME/MinivLLM/blob/686b547b798518fcbd558e51e3d0a387c1bdbe07/src/myvllm/layers/attention.py#L213-L219))
+应用 Causal Mask 前，将 Q 坐标加上 `num_cached_tokens`，使 Q 与 K/V 都相对于完整 Context。(Causal Mask)
 
 ## 结果
 

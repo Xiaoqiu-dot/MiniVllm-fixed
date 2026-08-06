@@ -1,6 +1,6 @@
-# 摘要 — Commit ID 区间：[`dcff99f`](https://github.com/YOUR_USERNAME/MinivLLM/commit/dcff99f3b791a230eddc447b0519583bf6c209e5) → [`f71bd44`](https://github.com/YOUR_USERNAME/MinivLLM/commit/f71bd443275e6f0b1ddfa3e482fa34e160ef92a9)
+# 摘要 — Commit ID 区间：`dcff99f` → `f71bd44`
 
-**Tag：** [`release-6`](https://github.com/YOUR_USERNAME/MinivLLM/tree/release-6)
+**Tag：** `release-6`
 
 本次 Release 为下一个 Release 准备 Decode Attention 基础。下一个 Release 将加入 Qwen3-32B 的单机多 GPU 部署，并以此验证张量并行（TP）以及整套推理框架中的 Prefill/Decode 调度、KV Cache、CUDA Graph 和多 Rank 执行路径。Release 6 首先消除大模型 Decode Kernel 瓶颈：在隔离的 Qwen3-32B Decode Attention 基准测试中，新 Kernel 相比原实现取得约 **75× 的 Kernel 级性能提升**。
 
@@ -17,9 +17,9 @@
 
 **问题**
 
-* 原始启动 Grid 是 `(batch_size, num_heads)`。Qwen3-32B 在 Batch 1 下仅启动 64 个 Triton Program，而且每个 Program 都要串行遍历完整 KV Context。长上下文 Decode 因此没有足够的独立工作来占满 GPU。([原始代码](https://github.com/YOUR_USERNAME/MinivLLM/blob/25ce870d2319b387133fd5680fa0fc95cd10b2a8/src/myvllm/layers/attention.py#L475-L528))
-* Qwen3-32B 使用 GQA，八个 Query Head 共享一个 KV Head，但旧 Program 按单个 Query Head 分配。同一份 K/V 数据因此被八个不同 Program 重复加载和处理，无法在 Query 分组内复用。([原始代码](https://github.com/YOUR_USERNAME/MinivLLM/blob/25ce870d2319b387133fd5680fa0fc95cd10b2a8/src/myvllm/layers/attention.py#L363-L424))
-* QK 和 PV 都通过 `BLOCK_N` 上的标量循环表达：Kernel 每次加载一个 K 向量、归约 `q * k`、向 `qk` 插入一个分数，然后再进行第二个标量循环，逐个提取概率并累加一个 V 向量。这使两个主要矩阵乘法无法使用分块 `tl.dot` 和对 Tensor Core 友好的 MMA Shape。([原始代码](https://github.com/YOUR_USERNAME/MinivLLM/blob/25ce870d2319b387133fd5680fa0fc95cd10b2a8/src/myvllm/layers/attention.py#L397-L465))
+* 原始启动 Grid 是 `(batch_size, num_heads)`。Qwen3-32B 在 Batch 1 下仅启动 64 个 Triton Program，而且每个 Program 都要串行遍历完整 KV Context。长上下文 Decode 因此没有足够的独立工作来占满 GPU。(原始代码)
+* Qwen3-32B 使用 GQA，八个 Query Head 共享一个 KV Head，但旧 Program 按单个 Query Head 分配。同一份 K/V 数据因此被八个不同 Program 重复加载和处理，无法在 Query 分组内复用。(原始代码)
+* QK 和 PV 都通过 `BLOCK_N` 上的标量循环表达：Kernel 每次加载一个 K 向量、归约 `q * k`、向 `qk` 插入一个分数，然后再进行第二个标量循环，逐个提取概率并累加一个 V 向量。这使两个主要矩阵乘法无法使用分块 `tl.dot` 和对 Tensor Core 友好的 MMA Shape。(原始代码)
 
 **示例**
 
@@ -27,9 +27,9 @@
 
 **修复**
 
-* Stage 1 Grid 改为 `(batch_size, num_kv_heads, num_splits)`。每个 Program 负责一个 `(batch, KV Head, context split)` 元组，使长 Context 能在 N 方向暴露并行度，而不是全部串行留在单个 Program 内。([修复](https://github.com/YOUR_USERNAME/MinivLLM/blob/dcff99f3b791a230eddc447b0519583bf6c209e5/src/myvllm/layers/attention_large_scale.py#L344-L387))
-* 共享同一 KV Head 的全部 Query Head 被加载成一个 Q 分组。Qwen3-32B 的逻辑分组为 `[8, 128]`，随后补齐为适配 MMA 的 `[16, 128]` Tile，补齐行在 load/store 时被 Mask。一个 K Tile 因而可由八个真实 Query Head 共同复用。([修复](https://github.com/YOUR_USERNAME/MinivLLM/blob/dcff99f3b791a230eddc447b0519583bf6c209e5/src/myvllm/layers/attention_large_scale.py#L388-L408))
-* 一个 N Tile 中 32 个 Token 的分页 K/V 地址会被同时转换。QK 变为 `[16, 128] @ [128, 32]` 上的 `tl.dot(q, k)`，PV 变为 `[16, 32] @ [32, 128]` 上的 `tl.dot(p, v)`；原有在线 Softmax 状态 `m_i`、`l_i` 和 `acc` 在 Tile 间保持不变。([修复](https://github.com/YOUR_USERNAME/MinivLLM/blob/dcff99f3b791a230eddc447b0519583bf6c209e5/src/myvllm/layers/attention_large_scale.py#L410-L455))
+* Stage 1 Grid 改为 `(batch_size, num_kv_heads, num_splits)`。每个 Program 负责一个 `(batch, KV Head, context split)` 元组，使长 Context 能在 N 方向暴露并行度，而不是全部串行留在单个 Program 内。(修复)
+* 共享同一 KV Head 的全部 Query Head 被加载成一个 Q 分组。Qwen3-32B 的逻辑分组为 `[8, 128]`，随后补齐为适配 MMA 的 `[16, 128]` Tile，补齐行在 load/store 时被 Mask。一个 K Tile 因而可由八个真实 Query Head 共同复用。(修复)
+* 一个 N Tile 中 32 个 Token 的分页 K/V 地址会被同时转换。QK 变为 `[16, 128] @ [128, 32]` 上的 `tl.dot(q, k)`，PV 变为 `[16, 32] @ [32, 128]` 上的 `tl.dot(p, v)`；原有在线 Softmax 状态 `m_i`、`l_i` 和 `acc` 在 Tile 间保持不变。(修复)
 
 ### 2. Split-KV 并行与数值稳定的归约
 
@@ -39,8 +39,8 @@
 
 **问题**
 
-* 原 Kernel 没有 Context Split 维度，因此 `context_len` 增长只会增加每个 Query-Head Program 内部的串行工作量，不会扩大启动 Grid。对于没有 Batch 并行度的 Batch-1 自回归 Decode，这一点尤其低效。([原始代码](https://github.com/YOUR_USERNAME/MinivLLM/blob/25ce870d2319b387133fd5680fa0fc95cd10b2a8/src/myvllm/layers/attention.py#L382-L465))
-* 分割后的 Context 不能通过平均各 Split 独立归一化的 Attention Output 来合并。每个 Split 具有不同的最大 Logit 和指数分母；丢弃这些统计量会改变全局 Softmax 结果。原始单 Program 实现没有 Partial State 表示，也没有 Reduction 路径。([原始代码](https://github.com/YOUR_USERNAME/MinivLLM/blob/25ce870d2319b387133fd5680fa0fc95cd10b2a8/src/myvllm/layers/attention.py#L429-L472))
+* 原 Kernel 没有 Context Split 维度，因此 `context_len` 增长只会增加每个 Query-Head Program 内部的串行工作量，不会扩大启动 Grid。对于没有 Batch 并行度的 Batch-1 自回归 Decode，这一点尤其低效。(原始代码)
+* 分割后的 Context 不能通过平均各 Split 独立归一化的 Attention Output 来合并。每个 Split 具有不同的最大 Logit 和指数分母；丢弃这些统计量会改变全局 Softmax 结果。原始单 Program 实现没有 Partial State 表示，也没有 Reduction 路径。(原始代码)
 
 **示例**
 
@@ -48,10 +48,10 @@
 
 **修复**
 
-* Context 按 N Tile 而不是任意 Token 边界切分。`num_n_tiles`、`tiles_per_split`、`split_tile_start` 和 `split_tile_end` 将每个完整的 `BLOCK_N = 32` Tile 唯一分配给一个 Split，最后一个 Tile 再 Mask 掉超出 `context_len` 的 Token。([修复](https://github.com/YOUR_USERNAME/MinivLLM/blob/dcff99f3b791a230eddc447b0519583bf6c209e5/src/myvllm/layers/attention_large_scale.py#L381-L425))
-* Stage 1 将未归一化的在线 Softmax 状态写入 Workspace：`m_i/l_i` 的 Shape 为 `[batch, query_head, split]`，`acc` 的 Shape 为 `[batch, query_head, split, head_dim]`。让 Split 维相邻，可使每个 Reduction Program 读取同一 Query Head 的全部状态。([修复](https://github.com/YOUR_USERNAME/MinivLLM/blob/dcff99f3b791a230eddc447b0519583bf6c209e5/src/myvllm/layers/attention_large_scale.py#L457-L473))
-* Reduction 精确重建全局在线 Softmax：先计算 `m = max_s(m_s)`，再用 `exp(m_s - m)` 重标定每个 Split，得到 `l = Σ_s exp(m_s - m) l_s` 和 `acc = Σ_s exp(m_s - m) acc_s`，最终写入 `acc / l`。空 Split 满足 `l_s = 0`，不会产生贡献。([修复](https://github.com/YOUR_USERNAME/MinivLLM/blob/dcff99f3b791a230eddc447b0519583bf6c209e5/src/myvllm/layers/attention_large_scale.py#L490-L552))
-* `_choose_decode_num_splits()` 使用可用 Tile 数、最多 32 个 Split 和 Stage 1 目标 128 个 Program 共同限制 N 方向并行度。该决策只依赖启动时 Shape，不依赖运行时 `context_lens`，因此 CUDA Graph Capture 时 Grid 保持稳定。当 `num_splits == 1` 时，Stage 1 直接将归一化结果写入 `output`，避免 Partial Workspace 和 Reduction Launch。([修复](https://github.com/YOUR_USERNAME/MinivLLM/blob/dcff99f3b791a230eddc447b0519583bf6c209e5/src/myvllm/layers/attention_large_scale.py#L555-L695))
+* Context 按 N Tile 而不是任意 Token 边界切分。`num_n_tiles`、`tiles_per_split`、`split_tile_start` 和 `split_tile_end` 将每个完整的 `BLOCK_N = 32` Tile 唯一分配给一个 Split，最后一个 Tile 再 Mask 掉超出 `context_len` 的 Token。(修复)
+* Stage 1 将未归一化的在线 Softmax 状态写入 Workspace：`m_i/l_i` 的 Shape 为 `[batch, query_head, split]`，`acc` 的 Shape 为 `[batch, query_head, split, head_dim]`。让 Split 维相邻，可使每个 Reduction Program 读取同一 Query Head 的全部状态。(修复)
+* Reduction 精确重建全局在线 Softmax：先计算 `m = max_s(m_s)`，再用 `exp(m_s - m)` 重标定每个 Split，得到 `l = Σ_s exp(m_s - m) l_s` 和 `acc = Σ_s exp(m_s - m) acc_s`，最终写入 `acc / l`。空 Split 满足 `l_s = 0`，不会产生贡献。(修复)
+* `_choose_decode_num_splits()` 使用可用 Tile 数、最多 32 个 Split 和 Stage 1 目标 128 个 Program 共同限制 N 方向并行度。该决策只依赖启动时 Shape，不依赖运行时 `context_lens`，因此 CUDA Graph Capture 时 Grid 保持稳定。当 `num_splits == 1` 时，Stage 1 直接将归一化结果写入 `output`，避免 Partial Workspace 和 Reduction Launch。(修复)
 
 ### 3. 新 Decode Kernel 运行逻辑
 
@@ -98,7 +98,7 @@
 
 **修复**
 
-* 新增确定性的 CUDA 驱动，构造物理 Block 不连续的 Block Table，并针对短、长 Context 将优化 Kernel 与 PyTorch Reference 对比；它还会针对 Qwen3-32B 基准 Shape 单独比较新旧 Kernel，预热后使用 CUDA Event 计时，并通过 NVTX Range 与 CUDA Profiler 控制支持 NCU/NSYS 抓取。([修复](https://github.com/YOUR_USERNAME/MinivLLM/blob/f71bd443275e6f0b1ddfa3e482fa34e160ef92a9/tests/test_attention_large_scale_decode.py#L1-L221))
+* 新增确定性的 CUDA 驱动，构造物理 Block 不连续的 Block Table，并针对短、长 Context 将优化 Kernel 与 PyTorch Reference 对比；它还会针对 Qwen3-32B 基准 Shape 单独比较新旧 Kernel，预热后使用 CUDA Event 计时，并通过 NVTX Range 与 CUDA Profiler 控制支持 NCU/NSYS 抓取。(修复)
 
 使用以下命令运行已提交的测试驱动：
 
