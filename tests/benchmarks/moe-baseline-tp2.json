@@ -1,0 +1,65 @@
+{
+  "configuration": {
+    "model": "/root/paddlejob/gpfsspace/mapengtao_exp/models/Qwen3-30B-A3B-Base",
+    "tensor_parallel_size": 2,
+    "concurrency": 16,
+    "actual_max_prompt_tokens": 997,
+    "output_tokens": 128,
+    "max_model_length": 1125,
+    "max_num_batched_tokens": 4096,
+    "block_size_tokens": 256,
+    "gpu_memory_utilization": 0.9,
+    "enforce_eager": true,
+    "pytorch_version": "2.8.0+cu129",
+    "cuda_version": "12.9"
+  },
+  "results": [
+    {
+      "name": "moe-baseline-tp2",
+      "requests": 16,
+      "prompt_tokens": 15952,
+      "computed_prefill_tokens": 15952,
+      "cached_prompt_tokens": 0,
+      "cache_hit_rate": 0.0,
+      "output_tokens": 2048,
+      "prefill_seconds": 13.023582088761032,
+      "decode_seconds": 105.88692031987011,
+      "total_seconds": 118.91314424294978,
+      "prefill_tokens_per_second": 1224.8550276936564,
+      "decode_tokens_per_second": 19.190283312250482,
+      "output_tokens_per_second": 17.222654510049452,
+      "requests_per_second": 0.13455198835976134,
+      "block_size_tokens": 256,
+      "total_kv_cache_blocks": 3643,
+      "peak_used_kv_cache_blocks": 80,
+      "peak_kv_cache_memory_bytes_per_gpu": 1006632960,
+      "peak_kv_cache_memory_bytes_total": 2013265920,
+      "gpus": [
+        {
+          "rank": 0,
+          "device_index": 0,
+          "name": "NVIDIA H800",
+          "compute_capability": "9.0",
+          "total_memory_bytes": 84929347584,
+          "model_memory_bytes": 30947569664,
+          "kv_cache_capacity_bytes": 45839548416,
+          "kv_cache_block_bytes": 12582912,
+          "peak_allocated_memory_bytes": 77767079936,
+          "peak_reserved_memory_bytes": 77806436352
+        },
+        {
+          "rank": 1,
+          "device_index": 1,
+          "name": "NVIDIA H800",
+          "compute_capability": "9.0",
+          "total_memory_bytes": 84929347584,
+          "model_memory_bytes": 30947569664,
+          "kv_cache_capacity_bytes": 45839548416,
+          "kv_cache_block_bytes": 12582912,
+          "peak_allocated_memory_bytes": 77771218944,
+          "peak_reserved_memory_bytes": 77793853440
+        }
+      ]
+    }
+  ]
+}

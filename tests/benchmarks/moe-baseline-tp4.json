@@ -1,0 +1,89 @@
+{
+  "configuration": {
+    "model": "/root/paddlejob/gpfsspace/mapengtao_exp/models/Qwen3-30B-A3B-Base",
+    "tensor_parallel_size": 4,
+    "concurrency": 16,
+    "actual_max_prompt_tokens": 997,
+    "output_tokens": 128,
+    "max_model_length": 1125,
+    "max_num_batched_tokens": 4096,
+    "block_size_tokens": 256,
+    "gpu_memory_utilization": 0.9,
+    "enforce_eager": true,
+    "pytorch_version": "2.8.0+cu129",
+    "cuda_version": "12.9"
+  },
+  "results": [
+    {
+      "name": "moe-baseline-tp4",
+      "requests": 16,
+      "prompt_tokens": 15952,
+      "computed_prefill_tokens": 15952,
+      "cached_prompt_tokens": 0,
+      "cache_hit_rate": 0.0,
+      "output_tokens": 2048,
+      "prefill_seconds": 13.818688140250742,
+      "decode_seconds": 109.21806507278234,
+      "total_seconds": 123.03939491603523,
+      "prefill_tokens_per_second": 1154.3787541984827,
+      "decode_tokens_per_second": 18.604980766193634,
+      "output_tokens_per_second": 16.645075354910514,
+      "requests_per_second": 0.1300396512102384,
+      "block_size_tokens": 256,
+      "total_kv_cache_blocks": 9227,
+      "peak_used_kv_cache_blocks": 80,
+      "peak_kv_cache_memory_bytes_per_gpu": 503316480,
+      "peak_kv_cache_memory_bytes_total": 2013265920,
+      "gpus": [
+        {
+          "rank": 0,
+          "device_index": 0,
+          "name": "NVIDIA H800",
+          "compute_capability": "9.0",
+          "total_memory_bytes": 84929347584,
+          "model_memory_bytes": 15687905280,
+          "kv_cache_capacity_bytes": 58051264512,
+          "kv_cache_block_bytes": 6291456,
+          "peak_allocated_memory_bytes": 74164662784,
+          "peak_reserved_memory_bytes": 75837210624
+        },
+        {
+          "rank": 1,
+          "device_index": 1,
+          "name": "NVIDIA H800",
+          "compute_capability": "9.0",
+          "total_memory_bytes": 84929347584,
+          "model_memory_bytes": 15687905280,
+          "kv_cache_capacity_bytes": 58051264512,
+          "kv_cache_block_bytes": 6291456,
+          "peak_allocated_memory_bytes": 74164662784,
+          "peak_reserved_memory_bytes": 75837210624
+        },
+        {
+          "rank": 2,
+          "device_index": 2,
+          "name": "NVIDIA H800",
+          "compute_capability": "9.0",
+          "total_memory_bytes": 84929347584,
+          "model_memory_bytes": 15687905280,
+          "kv_cache_capacity_bytes": 58051264512,
+          "kv_cache_block_bytes": 6291456,
+          "peak_allocated_memory_bytes": 74164662784,
+          "peak_reserved_memory_bytes": 75837210624
+        },
+        {
+          "rank": 3,
+          "device_index": 3,
+          "name": "NVIDIA H800",
+          "compute_capability": "9.0",
+          "total_memory_bytes": 84929347584,
+          "model_memory_bytes": 15687905280,
+          "kv_cache_capacity_bytes": 58051264512,
+          "kv_cache_block_bytes": 6291456,
+          "peak_allocated_memory_bytes": 74164662784,
+          "peak_reserved_memory_bytes": 75837210624
+        }
+      ]
+    }
+  ]
+}
